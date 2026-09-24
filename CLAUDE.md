@@ -5,6 +5,11 @@ aquí gira alrededor de una base de conocimiento verificada sobre ella (`kb/`) d
 CVs, cartas y evaluaciones de ofertas. Tú eres quien mantiene el sistema; el usuario aporta
 los hechos y toma las decisiones.
 
+**Da por hecho que el usuario puede no saber nada de terminal, git ni LaTeX.** Tú ejecutas los
+comandos (commits, compilar, el radar); no le pidas al usuario que los haga. Háblale en lenguaje
+llano, sin jerga (di "guardar una versión", no "hacer commit"), y cuando necesites que haga
+algo fuera de la terminal (instalar algo, iniciar sesión en una web), dale los pasos uno a uno.
+
 ## 0. Primera sesión: ¿está el repo vacío?
 
 Si `kb/profile.md` no existe, el repo está recién copiado. **Antes de cualquier otra cosa**,
@@ -13,23 +18,34 @@ haz el onboarding:
 1. **Privacidad primero.** Comprueba `git remote -v`. Si el remoto apunta a un repo público
    (o al repo plantilla original), avisa: aquí van a ir datos personales (CV, salario,
    contactos). Su copia debe ser **privada**. No sigas metiendo datos hasta que lo confirme.
-2. **Pide el material que ya existe**, que es lo que más acelera: CV actual (PDF o texto),
-   export o texto de su perfil de LinkedIn, cartas antiguas, títulos. Si puede, que los deje
-   en `assets/` (esa carpeta es para las fuentes en bruto).
-3. **Vuelca lo que haya a `kb/`** siguiendo `kb/README.md`: un fichero por experiencia,
+   Si no hay remoto (descargó el ZIP), está bien: todo se queda en su PC; haz tú el `git init`.
+2. **Comprueba el equipo, sin agobiar.** Mira en silencio qué hay instalado (`git`, `python`,
+   `pdflatex`/`latexmk`) y qué herramientas de navegador tienes (Claude in Chrome o Chrome
+   DevTools MCP). Solo cuenta lo que falte y para qué sirve, y deja claro que **nada de eso
+   bloquea empezar**:
+   - Sin LaTeX → los `.tex` se pueden compilar gratis en Overleaf (web, sin instalar nada:
+     subir la carpeta del CV y pulsar *Recompile*), o instalar MiKTeX / MacTeX más adelante.
+   - Sin herramienta de navegador → puede pegar el texto o la URL de las ofertas en el chat;
+     para conectarlo, remítelo a la sección del README "Conectar Claude con Chrome".
+   - Sin Python → el radar de `watchlist/` espera; no es necesario al principio.
+3. **Pide el material que ya existe**, que es lo que más acelera: CV actual (PDF o texto),
+   export o texto de su perfil de LinkedIn, cartas antiguas, títulos. Lo más fácil:
+   arrastrar el PDF a la ventana de la terminal, o copiarlo a la carpeta `assets/`.
+4. **Vuelca lo que haya a `kb/`** siguiendo `kb/README.md`: un fichero por experiencia,
    proyecto y logro, con frontmatter. Lo que solo esté "declarado" en un CV va con
    `confidence: medium` o `low`; nada es `high` sin una evidencia verificable.
-4. **Entrevista para rellenar huecos** con `kb/intake.md`. No lances las 40 preguntas de golpe:
+5. **Entrevista para rellenar huecos** con `kb/intake.md`. No lances las 40 preguntas de golpe:
    hazlas por bloques, empezando por lo que desbloquea más (criterios de búsqueda y
    experiencia). Adapta las preguntas a su sector — no es lo mismo un perfil técnico que uno
    de educación, sanidad o industria.
-5. **Adapta `kb/tags.md` a su sector** (sustituye los placeholders por su vocabulario real).
-6. **Escribe `kb/profile.md`** con un resumen de quién es y, sobre todo, una sección
+6. **Adapta `kb/tags.md` a su sector** (sustituye los placeholders por su vocabulario real).
+7. **Escribe `kb/profile.md`** con un resumen de quién es y, sobre todo, una sección
    `## Criterios de búsqueda`: geografía y modalidad (presencial/híbrido/remoto), salario
    mínimo, tipo de rol, sectores que sí/no, fecha de incorporación, si tiene empleo ahora
    mismo. Estos criterios son el filtro de todo lo que viene después.
-7. **Decide con el usuario los canales** (ver §4): no todos los sectores se buscan en LinkedIn.
-8. Haz commit al final de cada bloque para que el trabajo no se pierda.
+8. **Decide con el usuario los canales** (ver §4): no todos los sectores se buscan en LinkedIn.
+9. Haz commit al final de cada bloque para que el trabajo no se pierda (sin pedirle nada al
+   usuario; como mucho, dile que has guardado una versión).
 
 Cierra el onboarding con un resumen corto: qué hay en el kb, qué falta y cuál es el siguiente
 paso concreto.
@@ -138,5 +154,6 @@ paso concreto.
 - **Análisis de demanda:** bajar todas las ofertas de un sector, filtrar las relevantes y
   contar qué requisitos se repiten. De esa frecuencia sale qué formarse — ningún curso que los
   datos no justifiquen. Log manual en `watchlist/vacantes.csv`.
-- **LinkedIn:** usar la skill `linkedin-job-search` (extracción por JS, nunca snapshots
-  completos de la página).
+- **LinkedIn:** usar la skill `linkedin-job-search` (extracción por JS, nunca capturas ni
+  snapshots completos de la página). Funciona con Claude in Chrome o con Chrome DevTools MCP;
+  si no hay ninguno conectado, el usuario pega la oferta a mano y se sigue igual.

@@ -1,17 +1,32 @@
 ---
 name: linkedin-job-search
-description: Search and read LinkedIn job listings via Chrome DevTools MCP using targeted JS extraction instead of full accessibility-tree snapshots. Use whenever the user asks to search/browse LinkedIn for job offers, or to pull details from a specific LinkedIn job posting URL.
+description: Search and read LinkedIn job listings in the user's Chrome using targeted JS extraction instead of full-page snapshots. Works with Claude in Chrome (preferred) or the Chrome DevTools MCP. Use whenever the user asks to search/browse LinkedIn for job offers, or to pull details from a specific LinkedIn job posting URL.
 ---
 
 # linkedin-job-search
 
-LinkedIn pages are enormous in the accessibility tree (nav, ads, "gente que podrías conocer", footer with 30 language options...). `take_snapshot` on a LinkedIn page burns thousands of tokens on noise. This skill uses `evaluate_script` to pull only the structured fields needed, directly from the DOM.
+LinkedIn pages are enormous (nav, ads, "gente que podrías conocer", footer with 30 language
+options...). Screenshots, accessibility snapshots or `read_page` on a LinkedIn page burn
+thousands of tokens on noise. This skill runs a small JS snippet in the page to pull only the
+fields needed, straight from the DOM.
 
-## Prerequisites
+## Step 0 — which browser tool is available?
 
-- Chrome DevTools MCP tools loaded: `navigate_page`, `evaluate_script`, `list_pages`, `select_page` (load via `ToolSearch` if deferred).
-- An existing Chrome tab already logged into LinkedIn (check with `list_pages` — if a LinkedIn tab exists, `select_page` it instead of opening a new one and re-authenticating).
-- **Never use `take_snapshot` on a LinkedIn page.** Always use `evaluate_script`.
+Check your tool list (load deferred tools with `ToolSearch` if needed) and use the first that
+exists:
+
+| Option | Navigate | Run JS | How to pass the snippets below |
+|---|---|---|---|
+| **A. Claude in Chrome** (preferred) | `mcp__claude-in-chrome__navigate` | `mcp__claude-in-chrome__javascript_tool` (`action: "javascript_exec"`, `tabId`, `text`) | Paste the snippet **as-is** in `text` (they are IIFEs; the tool returns the value of the last expression and supports top-level `await`). Get a `tabId` first with `tabs_context_mcp`. |
+| **B. Chrome DevTools MCP** | `mcp__chrome-devtools__navigate_page` | `mcp__chrome-devtools__evaluate_script` | Pass **only the arrow function** in `function` — drop the leading `await (`, the wrapping `(` and the final `)()`; the tool calls it itself. Use `list_pages`/`select_page` to reuse an open LinkedIn tab. |
+
+**If neither exists**, don't improvise with WebFetch (LinkedIn blocks it). Tell the user, in
+plain language, that the browser connection isn't set up and point them to the README section
+*"Conectar Claude con Chrome"*. Meanwhile they can paste the offer text or URL by hand, which
+is enough for everything else in this repo.
+
+**Login:** the user must be logged into LinkedIn in that Chrome. If the page shows a login
+wall, ask them to log in themselves — never type credentials.
 
 ## Searching job listings
 
@@ -22,18 +37,36 @@ https://www.linkedin.com/jobs/search/?keywords=<url-encoded keywords>&location=<
 ```
 
 - `f_TPR=r604800` → last 7 days, `r2592000` → last 30 days. Omit for no date filter.
-- Boolean `OR` in `keywords` is unreliable — LinkedIn sometimes collapses results. Prefer **one keyword per search call** over combining with OR; run multiple searches instead.
-- `navigate_page` to the URL. It may report a navigation timeout even when the page actually loaded (LinkedIn keeps background XHRs open) — proceed to extraction anyway and check the result.
+- `f_WT=2` → remote only (`1` on-site, `3` hybrid; combine as `f_WT=2%2C3`).
+- Boolean `OR` in `keywords` is unreliable — LinkedIn sometimes collapses results. Prefer
+  **one keyword per search** and run several.
+- Navigation may report a timeout even when the page loaded (LinkedIn keeps background
+  requests open) — run the extraction anyway and check the result.
 
-Extract job cards with this script (dedupes by URL, since LinkedIn often renders each card twice in the DOM):
+LinkedIn only renders the cards you have scrolled to (~7 of 25 at first). **Scroll the results
+list first** with this snippet (it finds the scrollable pane itself):
 
 ```js
-() => {
+await (async () => {
+  const first = document.querySelector('li[data-occludable-job-id], div.job-card-container');
+  let pane = first && first.parentElement;
+  while (pane && pane !== document.body && !(pane.scrollHeight > pane.clientHeight + 50 && getComputedStyle(pane).overflowY !== 'visible')) pane = pane.parentElement;
+  const target = (pane && pane !== document.body) ? pane : document.scrollingElement;
+  for (let y = 0; y <= target.scrollHeight; y += 400) { target.scrollTop = y; await new Promise(r => setTimeout(r, 250)); }
+  return new Set([...document.querySelectorAll('a[href*="/jobs/view/"]')].map(a => a.href.split('?')[0])).size;
+})()
+```
+
+Then extract job cards (covers both the logged-in and the logged-out page; dedupes by URL because
+LinkedIn often renders each card twice):
+
+```js
+(() => {
   const results = [];
-  document.querySelectorAll('div.job-card-container, li.jobs-search-results__list-item, li[data-occludable-job-id]').forEach(card => {
-    const title = card.querySelector('a.job-card-list__title, .job-card-list__title, a[href*="/jobs/view/"]');
-    const company = card.querySelector('.job-card-container__primary-description, .artdeco-entity-lockup__subtitle, .job-card-container__company-name');
-    const location = card.querySelector('.job-card-container__metadata-item, .artdeco-entity-lockup__caption');
+  document.querySelectorAll('div.job-card-container, li.jobs-search-results__list-item, li[data-occludable-job-id], div.base-card').forEach(card => {
+    const title = card.querySelector('a.job-card-list__title, .job-card-list__title, .base-search-card__title, a[href*="/jobs/view/"]');
+    const company = card.querySelector('.job-card-container__primary-description, .artdeco-entity-lockup__subtitle, .job-card-container__company-name, .base-search-card__subtitle');
+    const location = card.querySelector('.job-card-container__metadata-item, .artdeco-entity-lockup__caption, .job-search-card__location');
     const link = card.querySelector('a[href*="/jobs/view/"]');
     if (title || link) {
       results.push({
@@ -47,28 +80,34 @@ Extract job cards with this script (dedupes by URL, since LinkedIn often renders
   const seen = new Set();
   const dedup = results.filter(r => { if (seen.has(r.url)) return false; seen.add(r.url); return true; });
   return JSON.stringify({count: dedup.length, results: dedup});
-}
+})()
 ```
 
-Pass this as the `function` argument to `evaluate_script`. If a search returns 0 results, it usually means the keyword genuinely has no matches in that location/window — don't assume the selector broke unless every search returns 0.
+LinkedIn loads ~25 cards per page; add `&start=25`, `&start=50`... for more. If a search
+returns 0 results it usually means there are genuinely no matches — only suspect the selectors
+if **every** search returns 0 (then fall back to `get_page_text` / reading `main.innerText`).
 
 ## Reading a single job posting
 
-`navigate_page` to `https://www.linkedin.com/jobs/view/<id>/`, then extract the description text (not the full page):
+Navigate to `https://www.linkedin.com/jobs/view/<id>/`, then extract the text (not the page):
 
 ```js
-() => {
+(() => {
   const main = document.querySelector('main');
   const text = main ? main.innerText : document.body.innerText;
   return JSON.stringify({text: text.slice(0, 4000)});
-}
+})()
 ```
 
-4000 chars covers title, company, "Acerca del empleo", requirements, and benefits for almost every posting. Increase the slice only if a posting is unusually long and you're missing requirements at the tail.
+4000 chars covers title, company, "Acerca del empleo", requirements and benefits for almost
+every posting. Increase the slice only if requirements are cut off at the tail.
 
-## Workflow with the job-applications repo
+## Workflow in this repo
 
-When this is used inside a `job-applications`-style repo (tracker + per-company CV folders):
-
-1. Log every candidate offer in `applications.md` (title, company, match strength, status, URL) — this is the single source of truth for what's been found.
-2. When building a CV for a specific offer, save the offer URL **next to the CV itself**, not only in the tracker: the literal offer text + URL in `applications/<empresa-rol>/oferta.md` (postings disappear), plus a `% Oferta: <url>` comment near the top of `main.tex`. The tracker can get regenerated or filtered; the CV folder should be self-contained enough to know what it was written for without cross-referencing `applications.md`.
+1. Show the user a short list (title, company, location, why it fits or not according to
+   `kb/profile.md` → `## Criterios de búsqueda`). Don't dump every card.
+2. Log the ones worth tracking in `applications.md`.
+3. For an offer they want to pursue, save the **literal** text + URL in
+   `applications/<empresa-rol>/oferta.md` (postings disappear), and put `% Oferta: <url>`
+   near the top of the CV's `main.tex`.
+4. Close the browser tabs you opened when done.
