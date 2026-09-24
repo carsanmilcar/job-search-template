@@ -26,7 +26,8 @@ haz el onboarding:
    - Sin LaTeX → los `.tex` se pueden compilar gratis en Overleaf (web, sin instalar nada:
      subir la carpeta del CV y pulsar *Recompile*), o instalar MiKTeX / MacTeX más adelante.
    - Sin herramienta de navegador → puede pegar el texto o la URL de las ofertas en el chat;
-     para conectarlo, remítelo a la sección del README "Conectar Claude con Chrome".
+     para conectarlo, remite al usuario a la sección del README "LinkedIn: que Claude busque
+     por ti" (la app de escritorio no se conecta al navegador; hace falta la terminal).
    - Sin Python → el radar de `watchlist/` espera; no es necesario al principio.
 3. **Pide el material que ya existe**, que es lo que más acelera: CV actual (PDF o texto),
    export o texto de su perfil de LinkedIn, cartas antiguas, títulos. Lo más fácil:
