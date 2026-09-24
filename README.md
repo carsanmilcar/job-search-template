@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/logo-dark.png">
+    <img src=".github/logo.png" alt="job search kit" width="560">
+  </picture>
+</p>
+
 <h1 align="center">job search kit</h1>
 
 <p align="center">
